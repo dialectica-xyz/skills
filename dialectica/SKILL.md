@@ -11,7 +11,7 @@ Use the bundled helper script `scripts/dlx.py` for all reads — one call, compa
 
 ## Setup
 
-- **Base URL:** use `$DIALECTICA_BASE_URL` if set, else `https://dialectica.xyz`.
+- **Base URL:** the helper script reads `$DIALECTICA_BASE_URL` (else `https://dialectica.xyz`) directly. The raw-`curl` examples below use `$BASE` — define it once in your shell first: `BASE="${DIALECTICA_BASE_URL:-https://dialectica.xyz}"`.
 - **Auth:** a session token stored at `~/.dialectica/session`, obtained per [Auth check](#auth-check). **Tokens are per-host** — a token from a dev server does not work on production; if the base URL changes, get a fresh token.
 - The helper script sends the token on every call automatically. For raw curl: `-H "X-Active-Session: $(cat ~/.dialectica/session)"`. In production, anonymous API calls hit a CAPTCHA guest wall (`CAPTCHA_REQUIRED`) that a CLI cannot solve — an authenticated session bypasses it.
 
@@ -60,7 +60,7 @@ If missing, or calls return `LOGIN_REQUIRED` / `CAPTCHA_REQUIRED`, walk the user
 2. Have them paste the token to you, then save it:
    ```bash
    mkdir -p ~/.dialectica && chmod 700 ~/.dialectica
-   echo '<token>' > ~/.dialectica/session && chmod 600 ~/.dialectica/session
+   (umask 177; printf '%s' '<token>' > ~/.dialectica/session)   # session token — treat as a password
    ```
 
 (Fallback if `/connect-agent` is unavailable: open `<BASE>/api/auth/get-session` in the signed-in browser and copy the `session.token` value.)

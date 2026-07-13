@@ -25,6 +25,41 @@ import urllib.request
 BASE = os.environ.get("DIALECTICA_BASE_URL", "https://dialectica.xyz").rstrip("/")
 TOKEN_PATH = os.path.expanduser("~/.dialectica/session")
 
+# An authenticated session token rides on every request, so validate the base
+# origin before sending anything: reject non-http(s) schemes, and refuse plain
+# http except for a local dev host (the token would otherwise cross the wire in
+# the clear).
+_BASE = urllib.parse.urlparse(BASE)
+if _BASE.scheme not in ("http", "https") or not _BASE.hostname:
+    raise SystemExit(f"DIALECTICA_BASE_URL must be an http(s) URL — got {BASE!r}")
+if _BASE.scheme == "http" and _BASE.hostname not in ("localhost", "127.0.0.1", "::1"):
+    raise SystemExit(f"DIALECTICA_BASE_URL must use https — got http://{_BASE.hostname}")
+
+
+class _StripAuthCrossOrigin(urllib.request.HTTPRedirectHandler):
+    """Drop the session-token header if a redirect leaves the base origin.
+
+    urllib copies request headers onto the redirected request, so without this
+    a redirect from the configured host to another host would forward the
+    user's session token to that host.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        target = urllib.parse.urlparse(newurl)
+        # Compare the full origin (scheme + host:port), so an https->http
+        # downgrade to the same host also drops the token, not just a host change.
+        if new is not None and (target.scheme, target.netloc) != (_BASE.scheme, _BASE.netloc):
+            # Match case-insensitively: urllib stores the header capitalized
+            # ("X-active-session"), and remove_header() does not normalize.
+            for store in (new.headers, new.unredirected_hdrs):
+                for key in [k for k in store if k.lower() == "x-active-session"]:
+                    del store[key]
+        return new
+
+
+_opener = urllib.request.build_opener(_StripAuthCrossOrigin)
+
 
 def token():
     try:
@@ -52,7 +87,7 @@ def call(path, params=None):
     if tok:
         req.add_header("X-Active-Session", tok)
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with _opener.open(req, timeout=30) as r:
             body = json.load(r)
     except urllib.error.HTTPError as e:
         if e.code == 429:
@@ -86,8 +121,24 @@ def call(path, params=None):
     return data
 
 
+# Response bodies are authored by other marketplace participants (or a hostile
+# host); strip terminal control/escape sequences before printing so a poisoned
+# answer can't spoof the terminal or smuggle escape-hidden instructions to the
+# agent. Keeps tab/newline; removes ESC-based sequences (OSC/CSI/2-char) + C0.
+_CTRL = re.compile(
+    r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?"   # OSC (window-title / hyperlink)
+    r"|\x1b[@-Z\\-_]"                        # two-character escape sequences
+    r"|\x1b\[[0-?]*[ -/]*[@-~]"              # CSI (colors, cursor moves)
+    r"|[\x00-\x08\x0b-\x1f\x7f]"             # other C0 controls (incl. CR) + DEL; keeps \t \n
+)
+
+
+def clean(s):
+    return _CTRL.sub("", s or "")
+
+
 def strip_html(s):
-    return re.sub(r"<[^>]+>", "", s or "")
+    return clean(re.sub(r"<[^>]+>", "", s or ""))
 
 
 def cmd_search(args):
@@ -105,28 +156,29 @@ def cmd_search(args):
                 f"isos:{q.get('isoCount', 0)} | {q.get('status', '?')} | {content}"
             )
     for w in data.get("wiki", []):
-        print(f"W {w.get('slug')} | {strip_html(w.get('snippet', ''))[:120]}")
+        print(f"W {clean(w.get('slug'))} | {strip_html(w.get('snippet', ''))[:120]}")
     for a in data.get("arenas", []):
-        print(f"A {a.get('arenaId')} | {a.get('name')}")
+        print(f"A {a.get('arenaId')} | {clean(a.get('name'))}")
     if not any(data.get(k) for k in ("questions", "wiki", "arenas")):
         print("(no results)")
 
 
 def cmd_page(args):
-    data = call(f"/api/node/wiki/pages/{args.slug}")
+    data = call(f"/api/node/wiki/pages/{urllib.parse.quote(args.slug, safe='')}")
     p = data["page"]
-    print(f"# {p.get('title')}  [state: {p.get('state')}, updated: {p.get('updatedAt')}]")
-    print(f"URL: {BASE}/wiki/{p.get('slug')}")
+    print(f"# {clean(p.get('title'))}  [state: {p.get('state')}, updated: {p.get('updatedAt')}]")
+    print(f"URL: {BASE}/wiki/{clean(p.get('slug'))}")
     print()
-    print(p.get("markdown") or p.get("content") or "(empty)")
+    print(clean(p.get("markdown") or p.get("content")) or "(empty)")
 
 
 def cmd_question(args):
-    isr = call(f"/api/node/isr/{args.isrId}")
+    isr_path = urllib.parse.quote(args.isrId, safe="")
+    isr = call(f"/api/node/isr/{isr_path}")
     print(f"QUESTION [{isr.get('status')}] {BASE}/isr/{args.isrId}")
     print(strip_html(isr.get("content", ""))[:600])
     print()
-    isos = call(f"/api/node/isos/{args.isrId}")["isos"]
+    isos = call(f"/api/node/isos/{isr_path}")["isos"]
     counts = {}
     for i in isos:
         counts[i.get("status")] = counts.get(i.get("status"), 0) + 1
@@ -140,10 +192,10 @@ def cmd_question(args):
         sd = ((i.get("reveal") or {}).get("data") or {}).get("structured_data") or {}
         head = f"--- VERIFIED {i['id'][:8]} | verifiers:{i.get('verifierCount')} refuted:{i.get('refutationCount')}"
         if sd.get("prediction") is not None:
-            head += f" | prediction:{sd.get('prediction')} conf:{sd.get('confidence')}"
+            head += f" | prediction:{clean(str(sd.get('prediction')))} conf:{clean(str(sd.get('confidence')))}"
         print(head)
         # forecasting answers carry `reasoning`; classic-schema answers carry `answer`
-        print((sd.get("reasoning") or sd.get("answer") or "")[: args.chars])
+        print(clean(sd.get("reasoning") or sd.get("answer") or "")[: args.chars])
         print()
 
 
@@ -187,7 +239,7 @@ def cmd_status(args):
         # their Dialectica inbox.
         print(f"🎉 Unread rewards: {gains}")
     for title, isr_id in settles[:5]:
-        print(f"📬 Question settled: {title[:100]} → {BASE}/isr/{isr_id}")
+        print(f"📬 Question settled: {clean(title)[:100]} → {BASE}/isr/{isr_id}")
     if other:
         print(f"({other} other unread notifications — run: dlx.py notifications)")
 
@@ -201,7 +253,7 @@ def cmd_notifications(args):
             if not args.all and n.get("read"):
                 continue
             c = n.get("content") or {}
-            title = c.get("title") or json.dumps(c)[:100]
+            title = clean(c.get("title") or json.dumps(c)[:100])
             print(
                 f"- [{n.get('type')}] {title[:140]} | ref:{n.get('referenceId', '-')}"
                 f" | {n.get('createdAt', '')}"
