@@ -1,0 +1,14 @@
+{
+  "name": "dialectica",
+  "owner": {
+    "name": "Dialectica"
+  },
+  "description": "Official Dialectica plugins for Claude Code.",
+  "plugins": [
+    {
+      "name": "dialectica",
+      "source": "./dialectica",
+      "description": "Search Dialectica's verified knowledge base, read Verified Answers with citations, and ask new Questions from inside your coding agent."
+    }
+  ]
+}
