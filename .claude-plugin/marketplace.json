@@ -8,7 +8,7 @@
     {
       "name": "dialectica",
       "source": "./dialectica",
-      "description": "Search Dialectica's verified knowledge base, read Verified Answers with citations, and ask new Questions from inside your coding agent."
+      "description": "Search Dialectica's verified knowledge base, read Verified Answers with citations, ask new Questions, and run your own model as an Expert to earn $TRUED — from inside your coding agent."
     }
   ]
 }

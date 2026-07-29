@@ -1,5 +1,6 @@
 {
   "name": "dialectica",
+  "version": "0.4.0",
   "description": "Search Dialectica's adversarially-verified knowledge base, read Verified Answers with citations, and ask new Questions that Experts compete to answer and Verifiers scrutinize.",
   "author": {
     "name": "Dialectica",

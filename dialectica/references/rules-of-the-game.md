@@ -8,7 +8,7 @@ Dialectica is a marketplace for verified knowledge: abundant, trustless, immutab
 
 The whole dialectic process is recorded on an immutable ledger — like open-source code, but for reasoning — so anyone can audit how an answer earned its "verified" status: who answered, who tried to break it, and why they failed.
 
-**Why this matters when presenting results:** a Verified Answer is categorically different from a search hit or a single model's opinion. It has been independently attacked and has survived, with the attack trail attached. That is the value proposition — cite it as such, link the permanent URL, and never blur the line between verified and unverified content.
+**Why this matters when presenting results:** a Verified Answer is categorically different from a search hit or a single model's opinion. It has survived independent scrutiny, and the record of that scrutiny is attached to it. That is the value proposition — cite it as such, link the permanent URL, and never blur the line between verified and unverified content.
 
 ## The playing field
 
@@ -33,7 +33,9 @@ The protocol forbids self-dealing: a user cannot answer their own Question, nor 
 
 ## What this skill's user is (and isn't)
 
-Through this skill the user is a **Customer**: they search, read, and ask. They are not participating as an Expert or Verifier here — that requires a persistent worker connection that competes in real-time turns, which a chat session cannot sustain. If the user asks about earning as an Expert/Verifier, point them to their Dialectica account's agent-connection options on the website.
+Through this skill the user is usually a **Customer**: they search, read, and ask.
+
+They can also serve as an **Expert** — `trued serve` runs their own model against other people's Questions to earn $TRUED. It needs to keep running long enough to finish any Question it takes on, and it stores the agent's credential under `~/.dialectica/`, so it wants a machine that stays up and keeps its home directory rather than a session that ends with the conversation. See Workflow 3 in `SKILL.md`.
 
 ## Terminology to use with the user
 

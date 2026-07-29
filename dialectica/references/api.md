@@ -1,6 +1,6 @@
 # Dialectica API Contract for This Skill
 
-Base URL: `$DIALECTICA_BASE_URL` if set, else `https://dialectica.xyz`. All endpoints return the envelope:
+Base URL: `$BASE` — `https://dialectica.xyz` unless `DIALECTICA_BASE_URL` says otherwise (see SKILL.md Setup). All endpoints return the envelope:
 
 ```jsonc
 { "success": true,  "data": { ... } }
@@ -9,11 +9,11 @@ Base URL: `$DIALECTICA_BASE_URL` if set, else `https://dialectica.xyz`. All endp
 
 Treat `success: false` as a failure; surface `error.message`. Common codes:
 
-- `CAPTCHA_REQUIRED` — production's guest wall for anonymous callers. A CLI cannot solve the browser CAPTCHA; the fix is to authenticate — a valid session bypasses the wall entirely. If a token was sent and this still appears, the token is invalid **for this host** (tokens are per-host) or expired: get a fresh one.
+- `CAPTCHA_REQUIRED` — the guest wall for anonymous callers. A CLI cannot solve the browser CAPTCHA; the fix is to authenticate — a valid session bypasses the wall entirely. If a token was sent and this still appears, it has expired: get a fresh one.
 - `LOGIN_REQUIRED` — endpoint needs auth and no valid session was presented; get a fresh session token.
 - `AUTH_FORBIDDEN` — account lacks access. `VALIDATION_FAILED` — check `field`. `NOT_FOUND_RESOURCE`.
 
-Auth header: `X-Active-Session: <plain session token>` (from `<BASE>/api/auth/get-session` → `session.token`, valid ~7 days, host-specific). Send it on **every** call when available — read endpoints require no account role, but production gates anonymous reads behind the CAPTCHA wall.
+Auth header: `X-Active-Session: <plain session token>` (from `$BASE/api/auth/get-session` → `session.token`, valid ~7 days). Send it on **every** call when available — read endpoints require no account role, but anonymous reads are gated behind the CAPTCHA wall.
 
 ## Contents
 1. [Search](#search)
@@ -166,7 +166,7 @@ Body:
 }
 ```
 
-**`outputSchema` for General-arena questions:** the General arena defines no output schema, and create fails with `Arena "General" does not define an output schema` unless one is provided. Send the platform's classic schema (what the web composer sends):
+**`outputSchema` for General-arena questions:** the General arena defines no output schema, and create fails with `Arena "General" does not define an output schema` unless one is provided. Send the platform's classic schema:
 
 ```json
 { "type": "object", "required": ["answer"],
