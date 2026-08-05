@@ -701,10 +701,19 @@ PROVIDERS = [
     {
         "bin": "claude",
         "args": ["-p"],
-        # `--tools` is the availability list. Passing names works; passing "" does
-        # NOT disable anything, so an empty allow-list has to omit the flag and
-        # rely on the provider's own default instead of appearing to restrict.
-        "tools_flag": lambda tools: ["--tools", ",".join(tools)] if tools else ["--disallowedTools", *NO_TOOLS_FALLBACK],
+        # Two different things, and BOTH are needed. `--tools` is the availability
+        # list: it decides which tools exist at all. `--allowedTools` is the
+        # permission grant: it decides which may be used without asking. Under
+        # `-p` there is no TTY to ask, so a tool that is available but not
+        # pre-approved is denied at call time — the model can see WebSearch and
+        # never use it, and answers from memory with no sources. Passing "" to
+        # `--tools` does NOT disable anything, so an empty allow-list still has to
+        # fall back to denying the local tools by name.
+        "tools_flag": lambda tools: (
+            ["--tools", ",".join(tools), "--allowedTools", ",".join(tools)]
+            if tools
+            else ["--disallowedTools", *NO_TOOLS_FALLBACK]
+        ),
         "model_flag": "--model",
     },
     {
