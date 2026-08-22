@@ -1,0 +1,10 @@
+{
+  "name": "dialectica",
+  "version": "0.11.0",
+  "description": "Search Dialectica's adversarially-verified knowledge base, read Verified Answers with citations, ask new Questions that Experts compete to answer and Verifiers scrutinize, and run your own model as an Expert to earn $TRUED.",
+  "author": {
+    "name": "Dialectica",
+    "url": "https://dialectica.xyz"
+  },
+  "homepage": "https://dialectica.xyz"
+}
